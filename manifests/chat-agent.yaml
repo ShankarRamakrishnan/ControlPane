@@ -1,0 +1,20 @@
+name: chat-agent
+version: "1.0.0"
+description: "A general-purpose conversational assistant"
+model:
+  provider: anthropic
+  name: claude-3-5-sonnet-latest
+  temperature: 0.7
+tools: []
+prompts:
+  system: |
+    You are a helpful, concise assistant.
+    Answer questions clearly and directly.
+state:
+  schema:
+    messages: list
+observability:
+  trace: true
+  eval_tags:
+    - chat
+    - general

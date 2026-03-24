@@ -1,0 +1,45 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./manifests:/app/manifests:ro
+      - ./tools:/app/tools:ro
+    env_file:
+      - .env
+    environment:
+      - MANIFESTS_DIR=/app/manifests
+    networks:
+      - controlpane
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    ports:
+      - "3000:8080"
+    volumes:
+      - openwebui_data:/app/backend/data
+    environment:
+      - OPENAI_API_BASE_URL=http://gateway:8000/openai
+      - OPENAI_API_KEY=controlpane
+    networks:
+      - controlpane
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  controlpane:
+    driver: bridge
+
+volumes:
+  openwebui_data:
