@@ -2,6 +2,9 @@
 
 Run and manage AI agents without chaos.
 
+This is not another agent framework.
+This is the missing control layer for AI systems.
+
 ControlPane is a control plane for AI systems:
 - define agents once (YAML)
 - run them consistently (LangGraph)
@@ -9,6 +12,16 @@ ControlPane is a control plane for AI systems:
 - use from UI or API (OpenWebUI compatible)
 
 Stop writing glue code. Start running experiments.
+
+---
+
+## Who this is for
+
+- Developers building multiple agents
+- Teams tired of rewriting the same setup
+- Anyone using LangChain / LangGraph seriously
+
+If you're building one-off demos, you don't need this.
 
 ---
 
@@ -25,6 +38,11 @@ If you've built anything with LangChain / LangGraph:
 So every project starts from scratch.
 
 You don't have a system. You have glue code.
+
+```
+Without ControlPane: every project = new glue code
+With ControlPane:    every project = reuse + iteration
+```
 
 ---
 
@@ -49,6 +67,26 @@ curl -X POST http://localhost:8000/agents/research-agent/invoke \
 ```
 
 Open the chat UI: [http://localhost:3000](http://localhost:3000) — powered by OpenWebUI, no extra config needed.
+
+---
+
+## Demo: 5 agents, 1 task, no orchestration code
+
+Run 5 agents with different prompts on the same task:
+
+**Input:** `"Summarize the latest LLM news"`
+
+| Agent | Prompt style | Output |
+|-------|-------------|--------|
+| Agent A | neutral | structured summary |
+| Agent B | opinionated | analysis with takes |
+| Agent C | concise | bullet insights |
+| Agent D | tool-heavy | cited research |
+| Agent E | executive | 3-sentence brief |
+
+Compare outputs → pick best → iterate on the YAML.
+
+No custom orchestration code. No new Python files. Just manifests.
 
 ---
 
