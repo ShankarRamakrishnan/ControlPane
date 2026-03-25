@@ -1,0 +1,127 @@
+kind: platform
+version: "1.0.0"
+
+schemas:
+  FindCandidatesRequest:
+    type: object
+    properties:
+      location: { type: string }
+      listing_type: { type: string }
+      home_types: { type: string, description: "comma-separated: Houses, Condos, Townhomes, MultiFamily" }
+      min_price: { type: integer }
+      max_price: { type: integer }
+      min_beds: { type: integer }
+      min_baths: { type: integer }
+      max_results: { type: integer }
+
+  CandidateProperty:
+    type: object
+    properties:
+      source: { type: string }
+      property_id: { type: string }
+      address: { type: string }
+      price: { type: number }
+      beds: { type: number }
+      baths: { type: number }
+      sqft: { type: number }
+      lot_size_sqft: { type: number }
+      home_type: { type: string }
+      year_built: { type: integer }
+      days_on_market: { type: integer }
+      price_per_sqft: { type: number }
+      estimated_value: { type: number }
+      estimated_rent: { type: number }
+      hoa_fee: { type: number }
+      listing_status: { type: string }
+      url: { type: string }
+      latitude: { type: number }
+      longitude: { type: number }
+
+capabilities:
+  - name: real_estate.find_candidates
+    description: "Find investment property candidates matching search criteria"
+    input_schema: FindCandidatesRequest
+    output_schema: "CandidateProperty[]"
+    tags: [real_estate, search]
+
+providers:
+  - name: zillow_rapidapi
+    kind: api
+    transport:
+      type: http
+      base_url: "https://zillow-com1.p.rapidapi.com"
+    auth:
+      type: api_key
+      secret: RAPIDAPI_KEY
+      headers:
+        X-RapidAPI-Key: "{{secret}}"
+        X-RapidAPI-Host: "zillow-com1.p.rapidapi.com"
+    supports:
+      - real_estate.find_candidates
+    status: active
+
+  - name: zillow_bridge
+    kind: api
+    transport:
+      type: http
+      base_url: "https://api.bridgeinteractive.com"
+    auth:
+      type: api_key
+      secret: ZILLOW_BRIDGE_API_KEY
+      headers:
+        Authorization: "Bearer {{secret}}"
+    supports:
+      - real_estate.find_candidates
+    status: stub
+
+bindings:
+  - capability: real_estate.find_candidates
+    provider: zillow_rapidapi
+    operation: /propertyExtendedSearch
+    method: GET
+    input_map:
+      location: location
+      maxPrice: max_price
+      minPrice: min_price
+      bedsMin: min_beds
+      bathsMin: min_baths
+      home_type: home_types
+      status_type: listing_type
+    value_maps:
+      listing_type:
+        for_sale: forSale
+        for_rent: forRent
+    results_key: props
+    output_map:
+      property_id: zpid
+      address: address
+      price: price
+      beds: bedrooms
+      baths: bathrooms
+      sqft: livingArea
+      lot_size_sqft: lotAreaValue
+      home_type: homeType
+      year_built: yearBuilt
+      days_on_market: daysOnZillow
+      estimated_value: zestimate
+      estimated_rent: rentZestimate
+      hoa_fee: hoaFee
+      listing_status: listingStatus
+      url: detailUrl
+      latitude: latitude
+      longitude: longitude
+    url_prefixes:
+      url: "https://www.zillow.com"
+
+policies:
+  routing:
+    real_estate.find_candidates:
+      strategy: fallback
+      order:
+        - zillow_bridge
+        - zillow_rapidapi
+
+agents:
+  - name: zillow-buybox-agent
+    allowed_capabilities:
+      - real_estate.find_candidates
