@@ -49,6 +49,25 @@ class AgentRuntime:
         llm = _build_llm(self.manifest)
         tools = load_tools_for_manifest(self.manifest)
 
+        # Augment with tools from platform capabilities this agent is allowed
+        try:
+            from gateway.core.platform_loader import get_engine
+            from gateway.core.tool_registry import get_tools_by_source_prefix
+            engine = get_engine()
+            if engine:
+                perms = engine.get_agent_permissions(self.manifest.name)
+                if perms:
+                    existing = {t.name for t in tools}
+                    for cap in perms.allowed_capabilities:
+                        for provider_name in engine.providers_for_capability(cap):
+                            for t in get_tools_by_source_prefix(f"mcp:{provider_name}") + \
+                                      get_tools_by_source_prefix(f"openapi:{provider_name}"):
+                                if t.name not in existing:
+                                    tools.append(t)
+                                    existing.add(t.name)
+        except Exception as _e:
+            logger.debug("Platform capability tool augmentation skipped: %s", _e)
+
         graph = create_react_agent(
             model=llm,
             tools=tools,
