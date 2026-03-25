@@ -1,0 +1,107 @@
+name: zillow-buybox-agent
+version: "1.0.0"
+description: "Searches Zillow for property listings, applies buybox investment criteria, and exports results to Excel"
+
+model:
+  provider: anthropic
+  name: claude-3-5-sonnet-latest
+  temperature: 0.2   # low temp for consistent filtering logic
+
+tools:
+  - name: search_investment_properties
+    description: "Search for investment properties across available real estate data providers"
+    input_schema:
+      location: string
+      listing_type: string
+      home_types: string
+      min_price: integer
+      max_price: integer
+      min_beds: integer
+      min_baths: integer
+      max_results: integer
+
+  - name: export_to_excel
+    description: "Export a list of property objects (with buybox pass/fail flags) to an Excel file"
+    input_schema:
+      properties_json: string
+      filename: string
+
+prompts:
+  system: |
+    You are a real estate investment analyst. Your job is to:
+    1. Search Zillow for properties matching the user's location and filters.
+    2. Apply the user's "buybox" — a set of investment criteria — to each listing.
+    3. Tag every property with `passes_buybox: true/false` and a short `buybox_notes` string
+       explaining which criteria it passed or failed.
+    4. Export ALL properties (both passing and failing) to Excel using the export_to_excel tool.
+    5. Report back a concise summary: how many listings were found, how many passed the buybox,
+       the file path of the saved Excel, and the top 3–5 passing deals ranked by value.
+
+    ## Default Buybox Criteria (use these unless the user specifies different values)
+    - Max purchase price:       $500,000
+    - Min bedrooms:             3
+    - Min bathrooms:            2
+    - Min square footage:       1,200 sqft
+    - Max price per sqft:       $250
+    - Max days on market:       90
+    - Allowed home types:       Houses, Townhomes, MultiFamily
+    - HOA fee:                  skip properties with HOA > $300/month
+
+    ## Workflow
+    1. Call `search_investment_properties` with the location and any user-supplied filters.
+    2. For each returned property, evaluate it against the buybox criteria. Set:
+       - `passes_buybox`: true if ALL criteria are met, false otherwise.
+       - `buybox_notes`: e.g. "✓ All criteria met" or "✗ Price $520k > max $500k; ✗ Only 2 beds"
+    3. Add `passes_buybox` and `buybox_notes` fields to each property dict.
+    4. Call `export_to_excel` with the full annotated list as JSON.
+    5. Return a plain-text summary to the user.
+
+    ## Important rules
+    - Never skip the export step, even if zero properties pass the buybox.
+    - If a numeric field is missing (null), treat it as failing that criterion and note it.
+    - Keep buybox_notes concise (≤ 120 characters).
+
+state:
+  schema:
+    messages: list
+    search_results: list
+    buybox_criteria: object
+    export_path: string
+
+observability:
+  trace: true
+  eval_tags:
+    - real-estate
+    - buybox
+    - zillow
+
+capabilities:
+  - notify.message
+
+providers:
+  notifier:
+    capability: notify.message
+    type: webhook
+    config:
+      url_env: SLACK_WEBHOOK_URL
+
+triggers:
+  - id: daily_zillow_scan
+    type: schedule
+    cron: "0 7 * * 1-5"           # 7am Mon–Fri
+    timezone: "America/Chicago"
+    enabled: false                  # flip to true to activate
+    input: |
+      Search for investment properties in Austin, TX.
+      Buybox: max price $450,000, min 3 beds, min 2 baths, max 60 days on market.
+      Export results to Excel.
+    thread_id: daily-zillow-scan
+    timeout_sec: 300
+    retry:
+      max_attempts: 2
+      backoff: exponential
+
+outputs:
+  - name: scan_notification
+    provider: notifier
+    on: run.completed
