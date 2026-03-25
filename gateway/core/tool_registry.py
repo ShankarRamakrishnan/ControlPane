@@ -9,13 +9,31 @@ from gateway.models.manifest import AgentManifest
 logger = logging.getLogger(__name__)
 
 _tool_registry: dict[str, BaseTool] = {}
+_tool_sources: dict[str, str] = {}
 
 
 def register(t: BaseTool) -> BaseTool:
     """Register a LangChain tool by name. Use as a decorator on @tool functions."""
     _tool_registry[t.name] = t
+    _tool_sources[t.name] = "python"
     logger.debug(f"Registered tool: {t.name}")
     return t
+
+
+def register_many(tools: list[BaseTool], source: str) -> int:
+    for t in tools:
+        _tool_registry[t.name] = t
+        _tool_sources[t.name] = source
+    logger.info(f"Registered {len(tools)} tool(s) from source '{source}': {[t.name for t in tools]}")
+    return len(tools)
+
+
+def list_registered_with_sources() -> dict[str, str]:
+    return dict(_tool_sources)
+
+
+def get_tools_by_source_prefix(prefix: str) -> list[BaseTool]:
+    return [_tool_registry[name] for name, src in _tool_sources.items() if src.startswith(prefix) and name in _tool_registry]
 
 
 def load_tools_for_manifest(manifest: AgentManifest) -> list[BaseTool]:
