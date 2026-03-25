@@ -36,6 +36,10 @@ class ManifestLoader:
             with open(path) as f:
                 raw = yaml.safe_load(f)
 
+            if isinstance(raw, dict) and raw.get("kind") == "platform":
+                logger.debug(f"Skipping platform manifest: {path.name}")
+                return None
+
             manifest = AgentManifest.model_validate(raw)
             self._registry[manifest.name] = manifest
             self._mtimes[manifest.name] = mtime
