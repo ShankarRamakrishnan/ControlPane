@@ -102,6 +102,9 @@ def mock_runtime():
 @pytest.fixture
 def test_app(tmp_manifests_dir):
     """A FastAPI app with test state (no real lifespan / LLM calls)."""
+    from gateway.adapters.webhook import WebhookAdapter
+    from gateway.core.capability_registry import CapabilityRegistry
+    from gateway.core.execution_engine import ExecutionEngine
     from gateway.routers import health, agents
     from gateway.routers import manifests as manifests_router
     from gateway.routers import openai_compat
@@ -110,8 +113,14 @@ def test_app(tmp_manifests_dir):
 
     loader = ManifestLoader(str(tmp_manifests_dir))
     loader.load_all()
+    registry = RuntimeRegistry()
+    capability_registry = CapabilityRegistry()
+    capability_registry.register("webhook", WebhookAdapter())
+
     app.state.manifest_loader = loader
-    app.state.runtime_registry = RuntimeRegistry()
+    app.state.runtime_registry = registry
+    app.state.capability_registry = capability_registry
+    app.state.execution_engine = ExecutionEngine(loader, registry, capability_registry)
 
     app.include_router(health.router)
     app.include_router(agents.router)

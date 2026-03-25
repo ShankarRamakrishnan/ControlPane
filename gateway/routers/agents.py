@@ -2,7 +2,11 @@ import json
 import logging
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from gateway.models.manifest import AgentManifest
+from gateway.models.invocation import (
+    InvocationContext,
+    InvocationSource,
+    UnifiedInvocationRequest,
+)
 from gateway.models.runtime import InvokeRequest, InvokeResponse, AgentSummary
 
 logger = logging.getLogger(__name__)
@@ -35,10 +39,20 @@ def list_agents(request: Request):
 
 
 @router.post("/{agent_name}/invoke", response_model=InvokeResponse)
-def invoke_agent(agent_name: str, body: InvokeRequest, request: Request):
-    runtime = _get_runtime(agent_name, request)
+async def invoke_agent(agent_name: str, body: InvokeRequest, request: Request):
+    engine = request.app.state.execution_engine
+    req = UnifiedInvocationRequest(
+        agent=agent_name,
+        source=InvocationSource.manual,
+        thread_id=body.thread_id,
+        input=body.message,
+        context=InvocationContext(),
+        metadata=body.metadata,
+    )
     try:
-        return runtime.invoke(body.message, body.thread_id, body.metadata)
+        return await engine.execute(req)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.exception(f"Agent '{agent_name}' invocation failed")
         raise HTTPException(status_code=500, detail=str(e))

@@ -18,3 +18,35 @@ observability:
   eval_tags:
     - chat
     - general
+
+# Abstract capabilities this agent needs
+capabilities:
+  - notify.message
+
+# Provider wiring — maps capability to adapter type and config
+providers:
+  notifier:
+    capability: notify.message
+    type: webhook
+    config:
+      url_env: SLACK_WEBHOOK_URL   # reads value from env at delivery time
+
+# Triggers — when this agent runs on its own
+triggers:
+  - id: morning_greeting
+    type: schedule
+    cron: "0 8 * * 1-5"        # 8am Mon–Fri
+    timezone: "America/Chicago"
+    enabled: false              # flip to true to activate
+    input: "Good morning! Give a one-sentence motivational message for the day."
+    thread_id: morning-greeting
+    timeout_sec: 60
+    retry:
+      max_attempts: 2
+      backoff: fixed
+
+# Outputs — which provider receives results and on which event
+outputs:
+  - name: default_notification
+    provider: notifier
+    on: run.completed

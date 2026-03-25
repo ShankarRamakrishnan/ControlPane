@@ -29,3 +29,53 @@ observability:
   eval_tags:
     - research
     - production
+
+# Abstract capabilities this agent needs
+capabilities:
+  - notify.message
+
+# Provider wiring — maps capability to adapter type and config
+providers:
+  notifier:
+    capability: notify.message
+    type: webhook
+    config:
+      url_env: SLACK_WEBHOOK_URL   # reads value from env at delivery time
+
+# Triggers — when this agent runs on its own
+triggers:
+  - id: daily_digest
+    type: schedule
+    cron: "0 7 * * *"          # 7am every day
+    timezone: "America/Chicago"
+    enabled: false              # flip to true to activate
+    input: "Search for the top 5 AI and technology news stories from the past 24 hours. Summarize each in 2–3 sentences with a source link."
+    thread_id: daily-digest
+    timeout_sec: 180
+    retry:
+      max_attempts: 3
+      backoff: exponential
+
+  - id: github_pr_review
+    type: webhook
+    enabled: true
+    secret_env: GITHUB_WEBHOOK_SECRET   # HMAC key stored in .env
+    event_filter:
+      action: "opened"                  # only fires on new PRs, not edits/closes
+    input_template: |
+      Review this pull request and identify any potential issues:
+
+      Title: {{ payload.pull_request.title }}
+      Author: {{ payload.pull_request.user.login }}
+      URL: {{ payload.pull_request.html_url }}
+      Description: {{ payload.pull_request.body }}
+    timeout_sec: 120
+    retry:
+      max_attempts: 2
+      backoff: fixed
+
+# Outputs — which provider receives results and on which event
+outputs:
+  - name: digest_notification
+    provider: notifier
+    on: run.completed
